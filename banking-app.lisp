@@ -1,14 +1,27 @@
 (defvar *account-numbers* 0)
 
+;;; generic functions
+
+(defgeneric customer-name (account)) ; reader for customer-name
+(defgeneric (setf customer-name) (value account)) ; writer for customer-name
+
+(defgeneric withdraw (account amount)
+  (:documentation "Withdraw the specified amount from the account.
+Signal an error if the current balance is less than amount."))
+
+(defgeneric assess-low-balance-penality (account))
+(defgeneric merge-accounts (account1 account2))
+
+;;; actual implementations
+
 (defclass bank-account ()
   ((customer-name
     :initarg :customer-name
-    :initform (error "Must supply a name.")
-    :accessor customer-name) ; :accessor is the combination of :reader and :writer
+    :initform (error "Must supply a name."))
    (balance
     :initarg :balance
     :initform 0
-    :reader balance
+    :accessor balance ; :accessor is the combination of :reader and :writer
     :documentation "Current balance")
    (account-number
     :initform (incf *account-numbers*))
@@ -16,24 +29,11 @@
     :reader account-type
     :writer (setf account-type))))
 
-(defgeneric customer-name (account)) ; reader for customer-name
-
 (defmethod customer-name ((account bank-account))
   (slot-value account 'customer-name))
 
-(defgeneric (setf customer-name) (value account)) ; writer for customer-name
-
 (defmethod (setf customer-name) (value (account bank-account))
   (setf (slot-value account 'customer-name) value))
-
-(defgeneric account-type (account))
-
-(defmethod account-type ((account bank-account))
-  (slot-value account 'account-type))
-
-(defgeneric withdraw (account amount)
-  (:documentation "Withdraw the specified amount from the account.
-Signal an error if the current balance is less than amount."))
 
 (defmethod withdraw ((account bank-account) amount)
   (when (< (balance account) amount)
@@ -42,17 +42,17 @@ Signal an error if the current balance is less than amount."))
 
 ;; (overdraft-account checking-account) -> bank-account object
 
-(defmethod withdraw :before ((account checking-account) amount)
-  (let ((overdraft (- amount (balance account))))
-    (when (plusp overdraft)
-      (withdraw (overdraft-account account) overdraft)
-      (incf (balance account) overdraft))))
+;(defmethod withdraw :before ((account checking-account) amount)
+;  (let ((overdraft (- amount (balance account))))
+;    (when (plusp overdraft)
+;      (withdraw (overdraft-account account) overdraft)
+;      (incf (balance account) overdraft))))
 
-(defmethod withdraw ((account (eql *account-of-bank-president*)) amount)
-  (let ((overdraft (- amount (balance account))))
-    (when (plusp overdraft)
-      (incf (balance account) (embezzle *bank* overdraft)))
-    (call-next-method)))
+;(defmethod withdraw ((account (eql *account-of-bank-president*)) amount)
+;  (let ((overdraft (- amount (balance account))))
+;    (when (plusp overdraft)
+;      (incf (balance account) (embezzle *bank* overdraft)))
+;    (call-next-method)))
 
 (defmethod initialize-instance :after ((account bank-account)
 				       &key opening-bonus-per)
@@ -68,14 +68,10 @@ Signal an error if the current balance is less than amount."))
 	    ((>= balance 50000)  :silver)
 	    (t                   :bronze)))))
 
-(defgeneric assess-low-balance-penality (account))
-
 (defmethod assess-low-balance-penality ((account bank-account))
   (with-slots (balance) account ; OR (with-accessors ((balance balance)) account
     (when (< (balance account) 500)
       (decf balance (* balance 0.01)))))
-
-(defgeneric merge-accounts (account1 account2))
 
 (defmethod merge-accounts ((account1 bank-account)
 			   (account2 bank-account))
